@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"log"
 	"os"
 	"regexp"
@@ -12,7 +13,9 @@ type Repositories = chan RemoteRepo
 func main() {
 	log.Println("Reading config file")
 
-	config, err := ReadConfig()
+	conffile := flag.String("config", "$HOME/.mgit/config.json", "mgit config file")
+
+	config, err := ReadConfig(*conffile)
 	if err != nil {
 		log.Fatalf("Unable to read config file: %s", err)
 	}
@@ -22,7 +25,9 @@ func main() {
 	for repo := range repositories {
 		for _, location := range config.Locations {
 			if location.Wants(repo) {
-				log.Printf("We should clone %s in %s/%s\n", repo.url, location.Directory, repo.name)
+				if err = Clone(repo, location); err != nil {
+					log.Fatal(err)
+				}
 			}
 		}
 	}
@@ -55,8 +60,8 @@ func scaffold(config Config) Repositories {
 	return deduped
 }
 
-func ReadConfig() (config Config, err error) {
-	file, err := os.Open("mgit.json")
+func ReadConfig(filename string) (config Config, err error) {
+	file, err := os.Open(os.ExpandEnv(filename))
 	if err != nil {
 		return
 	}
@@ -81,6 +86,15 @@ func (l Location) Wants(repo RemoteRepo) bool {
 		return false
 	}
 	return match
+}
+
+func (l Location) DirectoryName() string {
+	vars := regexp.MustCompile("\\$[A-Z]*")
+
+	return vars.ReplaceAllStringFunc(l.Directory, func(value string) string {
+		log.Printf("Replacing " + value)
+		return os.ExpandEnv(l.Directory)
+	})
 }
 
 type Github struct {

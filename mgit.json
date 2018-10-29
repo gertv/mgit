@@ -1,13 +1,17 @@
 {
   "sources": {
     "github": {
-      "token": "67e259b52326d2b5d687b168399854437982710c"
+      "token": "<add your Github personal token here>"
     }
   },
  "locations": [
    {
-     "directory": "$HOME/Projects/E5",
-     "repository": "git@github.com:anova-be/e5-.*"
+     "directory": "$HOME/Projects/customer1",
+     "repository": "git@github.com:username/customer1-.*"
+   },
+   {
+     "directory": "$HOME/Projects/customer2",
+     "repository": "git@github.com:anova-be/.*-for-customer2"
    }
  ]
 }

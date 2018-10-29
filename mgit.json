@@ -1,0 +1,13 @@
+{
+  "sources": {
+    "github": {
+      "token": "67e259b52326d2b5d687b168399854437982710c"
+    }
+  },
+ "locations": [
+   {
+     "directory": "$HOME/Projects/E5",
+     "repository": "git@github.com:anova-be/e5-.*"
+   }
+ ]
+}

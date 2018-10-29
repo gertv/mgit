@@ -11,7 +11,7 @@
    },
    {
      "directory": "$HOME/Projects/customer2",
-     "repository": "git@github.com:anova-be/.*-for-customer2"
+     "repository": "git@github.com:username/.*-for-customer2"
    }
  ]
 }

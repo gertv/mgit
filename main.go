@@ -2,35 +2,74 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
+
+	"github.com/spf13/cobra"
 )
 
 type Repositories = chan RemoteRepo
+type LocalRepositories = chan LocalRepo
 
 func main() {
-	log.Println("Reading config file")
-
-	conffile := flag.String("config", "$HOME/.mgit/config.json", "mgit config file")
-
-	config, err := ReadConfig(*conffile)
-	if err != nil {
-		log.Fatalf("Unable to read config file: %s", err)
+	var rootCmd = &cobra.Command{
+		Use:   "mgit",
+		Short: "mgit is a small tool to work with multiple git repositories",
 	}
 
-	repositories := scaffold(config)
+	var conffile string
+	rootCmd.PersistentFlags().StringVar(&conffile, "config", "$HOME/.mgit/config.json", "mgit config file")
 
-	for repo := range repositories {
-		for _, location := range config.Locations {
-			if location.Wants(repo) {
-				if err = Clone(repo, location); err != nil {
-					log.Fatal(err)
+	var cloneCmd = &cobra.Command{
+		Use:   "clone",
+		Short: "'git clone' all the repositories we defined",
+		Run: func(cmd *cobra.Command, args []string) {
+			config, err := ReadConfig(conffile)
+			if err != nil {
+				log.Fatalf("Unable to read config file: %s", err)
+			}
+
+			repositories := scaffold(config)
+
+			for repo := range repositories {
+				for _, location := range config.Locations {
+					if location.Wants(repo) {
+						if err = Clone(repo, location); err != nil {
+							log.Fatal(err)
+						}
+					}
 				}
 			}
-		}
+		},
 	}
+
+	var fetchCmd = &cobra.Command{
+		Use:   "fetch",
+		Short: "'git fetch' on git repositories in all defined locations",
+		Run: func(cmd *cobra.Command, args []string) {
+			config, err := ReadConfig(conffile)
+			if err != nil {
+				log.Fatalf("Unable to read config file: %s", err)
+			}
+
+			repositories := localRepositories(config)
+
+			for repo := range repositories {
+				if err = Fetch(repo); err != nil {
+					log.Printf("Error fetching %s: %s\n", repo.Directory, err)
+				}
+			}
+		},
+	}
+
+	rootCmd.AddCommand(cloneCmd, fetchCmd)
+
+	if err := rootCmd.Execute(); err != nil {
+		os.Exit(1)
+	}
+
 }
 
 func scaffold(config Config) Repositories {
@@ -60,7 +99,33 @@ func scaffold(config Config) Repositories {
 	return deduped
 }
 
+func localRepositories(config Config) LocalRepositories {
+	repositories := make(LocalRepositories)
+
+	walkfunc := func(path string, info os.FileInfo, err error) error {
+		if info.Name() == ".git" {
+			repositories <- LocalRepo{filepath.Dir(path)}
+			return filepath.SkipDir
+		}
+		return nil
+	}
+
+	go func() {
+		defer close(repositories)
+
+		for _, location := range config.Locations {
+			err := filepath.Walk(os.ExpandEnv(location.Directory), walkfunc)
+			if err != nil {
+				log.Println(err)
+			}
+		}
+	}()
+
+	return repositories
+}
+
 func ReadConfig(filename string) (config Config, err error) {
+	log.Printf("Reading config file %s", filename)
 	file, err := os.Open(os.ExpandEnv(filename))
 	if err != nil {
 		return
@@ -95,6 +160,10 @@ func (l Location) DirectoryName() string {
 		log.Printf("Replacing " + value)
 		return os.ExpandEnv(l.Directory)
 	})
+}
+
+type LocalRepo struct {
+	Directory string
 }
 
 type Github struct {

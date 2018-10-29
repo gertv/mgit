@@ -39,3 +39,11 @@ func Clone(repo RemoteRepo, location Location) error {
 	return cmd.Run()
 
 }
+
+func Fetch(repo LocalRepo) error {
+	log.Printf("Fetching %s\n", repo.Directory)
+
+	cmd := exec.Command("git", "fetch")
+	cmd.Dir = repo.Directory
+	return cmd.Run()
+}
